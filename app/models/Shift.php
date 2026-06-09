@@ -63,4 +63,32 @@ class Shift extends Model
         $row = $stmt->fetch();
         return $row ?: null;
     }
+
+    public function getExpectedCashWithMovements(int $shiftId): float
+    {
+        $cashSales = $this->getCashSalesTotal($shiftId);
+        $shift = $this->findById($shiftId);
+        if (!$shift) {
+            return 0;
+        }
+
+        $expected = (float) $shift['opening_float'] + $cashSales;
+
+        // Add cash movements
+        $sql = 'SELECT COALESCE(SUM(amount), 0) as total FROM shift_cash_movements 
+                WHERE shift_id = ? AND movement_type = ?';
+        $stmt = $this->db->prepare($sql);
+        
+        // Add float ins
+        $stmt->execute([$shiftId, 'FLOAT_IN']);
+        $row = $stmt->fetch();
+        $expected += (float) ($row['total'] ?? 0);
+        
+        // Subtract cash drops
+        $stmt->execute([$shiftId, 'CASH_DROP']);
+        $row = $stmt->fetch();
+        $expected -= (float) ($row['total'] ?? 0);
+
+        return $expected;
+    }
 }

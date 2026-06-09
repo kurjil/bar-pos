@@ -36,12 +36,14 @@ class ReportController
         Csrf::generateToken();
         [$from, $to] = $this->dateRange($request);
         $today = $this->saleModel->getDailyTotal();
+        $detail = $this->saleModel->getDailySalesDetail($from, $to);
 
         view('reports/daily-sales', [
             'title' => 'Daily Sales',
             'from' => $from,
             'to' => $to,
             'today' => $today,
+            'detail' => $detail,
         ]);
     }
 

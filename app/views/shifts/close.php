@@ -3,6 +3,14 @@
 <div class="card border-0 shadow-sm mb-4"><div class="card-body">
     <p><strong>Opening Float:</strong> <?= Formatter::money((float) $shift['opening_float']) ?></p>
     <p><strong>Cash Sales:</strong> <?= Formatter::money($cashSales) ?></p>
+    <?php if (!empty($movements)): ?>
+        <p><strong>Cash Movements:</strong></p>
+        <ul class="mb-2">
+            <?php foreach ($movements as $mvmt): ?>
+                <li><?= ($mvmt['movement_type'] === 'FLOAT_IN' ? 'Float In' : 'Cash Drop') ?>: <?= Formatter::money($mvmt['amount']) ?></li>
+            <?php endforeach; ?>
+        </ul>
+    <?php endif; ?>
     <p><strong>Expected Cash:</strong> <?= Formatter::money($expected) ?></p>
     <p><strong>Total Sales (all methods):</strong> <?= Formatter::money((float) $summary['total_sales']) ?> (<?= (int) $summary['transaction_count'] ?> txns)</p>
 </div></div>

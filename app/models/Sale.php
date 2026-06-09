@@ -100,12 +100,16 @@ class Sale extends Model
 
     public function getByProductReport(string $from, string $to): array
     {
-        $sql = "SELECT p.name AS product_name, SUM(si.quantity) AS qty, SUM(si.line_total) AS revenue
+        $sql = "SELECT p.id, p.name AS product_name, p.purchase_price, p.selling_price,
+                SUM(si.quantity) AS qty, SUM(si.line_total) AS revenue,
+                SUM(si.quantity * p.purchase_price) AS cost,
+                (SUM(si.line_total) - SUM(si.quantity * p.purchase_price)) AS gross_profit
                 FROM sale_items si
                 INNER JOIN sales s ON s.id = si.sale_id
                 INNER JOIN products p ON p.id = si.product_id
                 WHERE s.status = ? AND DATE(s.created_at) BETWEEN ? AND ?
-                GROUP BY p.id, p.name ORDER BY revenue DESC";
+                GROUP BY p.id, p.name, p.purchase_price, p.selling_price 
+                ORDER BY revenue DESC";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([SALE_STATUS_COMPLETED, $from, $to]);
         return $stmt->fetchAll();
@@ -113,7 +117,13 @@ class Sale extends Model
 
     public function getByCategoryReport(string $from, string $to): array
     {
-        $sql = "SELECT c.name AS category_name, SUM(si.line_total) AS revenue
+        $sql = "SELECT c.id, c.name AS category_name, 
+                COUNT(DISTINCT s.id) AS transaction_count,
+                SUM(si.quantity) AS total_qty,
+                SUM(si.line_total) AS revenue,
+                SUM(si.quantity * p.purchase_price) AS cost,
+                (SUM(si.line_total) - SUM(si.quantity * p.purchase_price)) AS gross_profit,
+                AVG(s.grand_total) AS avg_transaction
                 FROM sale_items si
                 INNER JOIN sales s ON s.id = si.sale_id
                 INNER JOIN products p ON p.id = si.product_id
@@ -122,6 +132,32 @@ class Sale extends Model
                 GROUP BY c.id, c.name ORDER BY revenue DESC";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([SALE_STATUS_COMPLETED, $from, $to]);
+        return $stmt->fetchAll();
+    }
+
+    public function getDailySalesDetail(string $from, string $to): array
+    {
+        $sql = "SELECT DATE(created_at) AS date,
+                COUNT(*) AS transaction_count,
+                SUM(CASE WHEN payment_method = ? THEN 1 ELSE 0 END) AS cash_count,
+                SUM(CASE WHEN payment_method = ? THEN 1 ELSE 0 END) AS mobile_count,
+                SUM(CASE WHEN payment_method = ? THEN 1 ELSE 0 END) AS card_count,
+                COALESCE(SUM(grand_total), 0) AS total,
+                COALESCE(SUM(CASE WHEN payment_method = ? THEN grand_total ELSE 0 END), 0) AS cash_total,
+                COALESCE(SUM(CASE WHEN payment_method = ? THEN grand_total ELSE 0 END), 0) AS mobile_total,
+                COALESCE(SUM(CASE WHEN payment_method = ? THEN grand_total ELSE 0 END), 0) AS card_total,
+                COALESCE(SUM(discount_value), 0) AS total_discount,
+                COALESCE(SUM(tax_amount), 0) AS total_tax
+                FROM sales
+                WHERE status = ? AND DATE(created_at) BETWEEN ? AND ?
+                GROUP BY DATE(created_at)
+                ORDER BY date DESC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([
+            PAYMENT_METHOD_CASH, PAYMENT_METHOD_MOBILE_MONEY, PAYMENT_METHOD_CARD,
+            PAYMENT_METHOD_CASH, PAYMENT_METHOD_MOBILE_MONEY, PAYMENT_METHOD_CARD,
+            SALE_STATUS_COMPLETED, $from, $to
+        ]);
         return $stmt->fetchAll();
     }
 }

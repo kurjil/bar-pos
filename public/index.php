@@ -37,6 +37,9 @@ $router->post('/shifts/open', [ShiftController::class, 'open'], ['auth', 'staff'
 $router->get('/shifts/close', [ShiftController::class, 'closeForm'], ['auth', 'staff']);
 $router->post('/shifts/close', [ShiftController::class, 'close'], ['auth', 'staff', 'csrf']);
 $router->get('/shifts/report/{id}', [ShiftController::class, 'report'], ['auth', 'staff']);
+$router->get('/shifts/print/{id}', [ShiftController::class, 'printReport'], ['auth', 'staff']);
+$router->post('/shifts/float-in', [ShiftController::class, 'addFloatIn'], ['auth', 'staff']);
+$router->post('/shifts/cash-drop', [ShiftController::class, 'addCashDrop'], ['auth', 'staff']);
 
 // POS (staff)
 $router->get('/pos', [PosController::class, 'index'], ['auth', 'staff']);
