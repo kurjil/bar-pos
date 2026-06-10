@@ -132,10 +132,13 @@
         .then(function (data) {
             const msg = document.getElementById('checkout-msg');
             if (data.success) {
-                msg.innerHTML = '<div class="alert alert-success">Sale complete! Receipt: ' + data.data.receipt_number + '</div>';
+                var printNote = data.data.printed
+                    ? ' Receipt sent to printer.'
+                    : ' (Printer offline — enable in Settings to print automatically.)';
+                msg.innerHTML = '<div class="alert alert-success">Sale complete! Receipt: ' + data.data.receipt_number + printNote + '</div>';
                 Object.keys(cart).forEach(function (k) { delete cart[k]; });
                 renderCart();
-                setTimeout(function () { location.reload(); }, 1500);
+                setTimeout(function () { location.reload(); }, 2000);
             } else {
                 msg.innerHTML = '<div class="alert alert-danger">' + (data.message || 'Checkout failed') + '</div>';
                 checkoutBtn.disabled = false;

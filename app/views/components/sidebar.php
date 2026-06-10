@@ -14,7 +14,7 @@ function navActive(string $path, string $current): string {
     <nav class="sidebar-nav flex-grow-1 px-3 pb-3">
         <a href="<?= e($base) ?>/dashboard" class="sidebar-link<?= navActive('/dashboard', $currentPath) ?>">Dashboard</a>
         <a href="<?= e($base) ?>/pos" class="sidebar-link<?= navActive('/pos', $currentPath) ?>">Point of Sale</a>
-        <a href="<?= e($base) ?>/shifts/open" class="sidebar-link<?= navActive('/shifts', $currentPath) ?>">Shifts</a>
+        <a href="<?= e($base) ?>/shifts/history" class="sidebar-link<?= navActive('/shifts', $currentPath) ?>">Shifts</a>
         <a href="<?= e($base) ?>/sales" class="sidebar-link<?= navActive('/sales', $currentPath) ?>">Sales</a>
 
         <?php if ($isAdmin): ?>
@@ -26,7 +26,11 @@ function navActive(string $path, string $current): string {
             <a href="<?= e($base) ?>/expenses" class="sidebar-link<?= navActive('/expenses', $currentPath) ?>">Expenses</a>
             <hr class="border-secondary my-2">
             <small class="text-white-50 px-3">Reports</small>
-            <a href="<?= e($base) ?>/reports/daily-sales" class="sidebar-link<?= navActive('/reports', $currentPath) ?>">Reports</a>
+            <a href="<?= e($base) ?>/reports/daily-sales" class="sidebar-link<?= navActive('/reports/daily-sales', $currentPath) ?>">Daily Sales</a>
+            <a href="<?= e($base) ?>/reports/end-of-day" class="sidebar-link<?= navActive('/reports/end-of-day', $currentPath) ?>">End of Day</a>
+            <a href="<?= e($base) ?>/reports/by-product" class="sidebar-link<?= navActive('/reports/by-product', $currentPath) ?>">By Product</a>
+            <a href="<?= e($base) ?>/reports/by-category" class="sidebar-link<?= navActive('/reports/by-category', $currentPath) ?>">By Category</a>
+            <a href="<?= e($base) ?>/reports/profit-summary" class="sidebar-link<?= navActive('/reports/profit-summary', $currentPath) ?>">Profit Summary</a>
             <hr class="border-secondary my-2">
             <small class="text-white-50 px-3">Admin</small>
             <a href="<?= e($base) ?>/users" class="sidebar-link<?= navActive('/users', $currentPath) ?>">Users</a>

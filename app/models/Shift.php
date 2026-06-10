@@ -64,6 +64,72 @@ class Shift extends Model
         return $row ?: null;
     }
 
+    public function getClosedShifts(?int $userId, int $page = 1, int $perPage = 20): array
+    {
+        $offset = max(0, ($page - 1) * $perPage);
+        $conditions = ['s.status = ?'];
+        $params = [SHIFT_STATUS_CLOSED];
+
+        if ($userId !== null) {
+            $conditions[] = 's.user_id = ?';
+            $params[] = $userId;
+        }
+
+        $where = implode(' AND ', $conditions);
+        $sql = "SELECT s.*, u.name AS user_name,
+                COALESCE(ss.transaction_count, 0) AS transaction_count,
+                COALESCE(ss.total_sales, 0) AS total_sales
+                FROM shifts s
+                INNER JOIN users u ON u.id = s.user_id
+                LEFT JOIN (
+                    SELECT shift_id, COUNT(*) AS transaction_count, COALESCE(SUM(grand_total), 0) AS total_sales
+                    FROM sales WHERE status = ?
+                    GROUP BY shift_id
+                ) ss ON ss.shift_id = s.id
+                WHERE {$where}
+                ORDER BY s.closing_time DESC
+                LIMIT ? OFFSET ?";
+        $stmt = $this->db->prepare($sql);
+        $i = 1;
+        $stmt->bindValue($i++, SALE_STATUS_COMPLETED);
+        foreach ($params as $param) {
+            $stmt->bindValue($i++, $param);
+        }
+        $stmt->bindValue($i++, $perPage, \PDO::PARAM_INT);
+        $stmt->bindValue($i, $offset, \PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
+
+    public function countClosedShifts(?int $userId): int
+    {
+        $conditions = ['status = ?'];
+        $params = [SHIFT_STATUS_CLOSED];
+
+        if ($userId !== null) {
+            $conditions[] = 'user_id = ?';
+            $params[] = $userId;
+        }
+
+        $sql = 'SELECT COUNT(*) FROM shifts WHERE ' . implode(' AND ', $conditions);
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return (int) $stmt->fetchColumn();
+    }
+
+    public function getSalesForShift(int $shiftId): array
+    {
+        $sql = "SELECT s.*, u.name AS cashier_name,
+                (SELECT COUNT(*) FROM sale_items si WHERE si.sale_id = s.id) AS items_count
+                FROM sales s
+                INNER JOIN users u ON u.id = s.user_id
+                WHERE s.shift_id = ? AND s.status = ?
+                ORDER BY s.created_at ASC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$shiftId, SALE_STATUS_COMPLETED]);
+        return $stmt->fetchAll();
+    }
+
     public function getExpectedCashWithMovements(int $shiftId): float
     {
         $cashSales = $this->getCashSalesTotal($shiftId);

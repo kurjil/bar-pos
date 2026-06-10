@@ -21,6 +21,10 @@
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        window.APP_URL = <?= json_encode(appConfig('url')) ?>;
+        window.CSRF_TOKEN = <?= json_encode(session()->get('csrf_token')) ?>;
+    </script>
     <script src="<?= e(appConfig('url')) ?>/assets/js/app.js"></script>
     <script src="<?= e(appConfig('url')) ?>/assets/js/dashboard.js"></script>
 </body>

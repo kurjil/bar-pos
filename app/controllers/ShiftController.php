@@ -12,6 +12,7 @@ use App\Middleware\Csrf;
 use App\Models\AuditLog;
 use App\Models\Shift;
 use App\Models\ShiftCashMovement;
+use App\Models\User;
 use PDO;
 
 class ShiftController
@@ -137,17 +138,131 @@ class ShiftController
         ]);
     }
 
-    public function printReport(Request $request, array $params = []): void
+    public function history(Request $request, array $params = []): void
+    {
+        Csrf::generateToken();
+        $isAdmin = auth()->role() === ROLE_ADMIN;
+        $filterUserId = $request->get('user_id', '');
+        $page = max(1, (int) $request->get('page', 1));
+        $perPage = 20;
+
+        $userId = null;
+        if ($isAdmin && $filterUserId !== '') {
+            $userId = (int) $filterUserId;
+        } elseif (!$isAdmin) {
+            $userId = auth()->id();
+        }
+
+        $shifts = $this->shiftModel->getClosedShifts($userId, $page, $perPage);
+        $total = $this->shiftModel->countClosedShifts($userId);
+        $totalPages = max(1, (int) ceil($total / $perPage));
+
+        $users = [];
+        if ($isAdmin) {
+            $users = (new User($this->db))->all();
+        }
+
+        view('shifts/history', [
+            'title' => 'Shift History',
+            'shifts' => $shifts,
+            'users' => $users,
+            'filterUserId' => $filterUserId,
+            'page' => $page,
+            'totalPages' => $totalPages,
+            'isAdmin' => $isAdmin,
+        ]);
+    }
+
+    public function detail(Request $request, array $params = []): void
     {
         $shift = $this->shiftModel->findWithUser((int) $params['id']);
         if (!$shift) {
-            response()->json(['success' => false, 'message' => 'Shift not found'], 404);
+            redirect('/shifts/history');
+        }
+
+        $isAdmin = auth()->role() === ROLE_ADMIN;
+        if (!$isAdmin && (int) $shift['user_id'] !== auth()->id()) {
+            session()->flash('error', 'Access denied.');
+            redirect('/shifts/history');
         }
 
         $cashSales = $this->shiftModel->getCashSalesTotal((int) $shift['id']);
         $summary = $this->shiftModel->getSalesSummary((int) $shift['id']);
         $movements = $this->movementModel->getByShift((int) $shift['id']);
         $expected = $this->shiftModel->getExpectedCashWithMovements((int) $shift['id']);
+        $sales = $this->shiftModel->getSalesForShift((int) $shift['id']);
+
+        $floatIn = 0.0;
+        $cashDrop = 0.0;
+        foreach ($movements as $mvmt) {
+            if ($mvmt['movement_type'] === 'FLOAT_IN') {
+                $floatIn += (float) $mvmt['amount'];
+            } else {
+                $cashDrop += (float) $mvmt['amount'];
+            }
+        }
+
+        $opening = strtotime($shift['opening_time']);
+        $closing = strtotime($shift['closing_time'] ?? 'now');
+        $durationHours = $opening && $closing ? round(($closing - $opening) / 3600, 1) : 0;
+
+        Csrf::generateToken();
+        view('shifts/detail', [
+            'title' => 'Shift Detail',
+            'shift' => $shift,
+            'cashSales' => $cashSales,
+            'summary' => $summary,
+            'expected' => $expected,
+            'movements' => $movements,
+            'sales' => $sales,
+            'totals' => [
+                'sales_count' => (int) $summary['transaction_count'],
+                'total_sales' => (float) $summary['total_sales'],
+                'avg_transaction' => $summary['transaction_count'] > 0
+                    ? (float) $summary['total_sales'] / (int) $summary['transaction_count']
+                    : 0,
+                'float_in_total' => $floatIn,
+                'cash_drop_total' => $cashDrop,
+                'duration_hours' => $durationHours,
+            ],
+        ]);
+    }
+
+    public function printReport(Request $request, array $params = []): void
+    {
+        $shift = $this->shiftModel->findWithUser((int) $params['id']);
+        if (!$shift) {
+            if ($request->isAjax()) {
+                response()->json(['success' => false, 'message' => 'Shift not found'], 404);
+            }
+            redirect('/shifts/history');
+        }
+
+        $isAdmin = auth()->role() === ROLE_ADMIN;
+        if (!$isAdmin && (int) $shift['user_id'] !== auth()->id()) {
+            if ($request->isAjax()) {
+                response()->json(['success' => false, 'message' => 'Access denied'], 403);
+            }
+            redirect('/shifts/history');
+        }
+
+        $cashSales = $this->shiftModel->getCashSalesTotal((int) $shift['id']);
+        $summary = $this->shiftModel->getSalesSummary((int) $shift['id']);
+        $movements = $this->movementModel->getByShift((int) $shift['id']);
+        $expected = $this->shiftModel->getExpectedCashWithMovements((int) $shift['id']);
+        $sales = $this->shiftModel->getSalesForShift((int) $shift['id']);
+
+        if ($request->isPost() || $request->isAjax() || $request->get('format') === 'thermal') {
+            $printed = ShiftPrinter::printThermal($shift, $cashSales, $summary, $expected, $movements, $sales);
+            $this->auditLog->log('SHIFT_REPORT_PRINTED', auth()->id(), 'shifts', (int) $shift['id'], [
+                'thermal' => $printed,
+            ], $request->ip());
+
+            if ($printed) {
+                response()->json(['success' => true, 'message' => 'Shift report sent to printer']);
+            }
+            response()->json(['success' => false, 'message' => 'Printer offline or disabled'], 500);
+        }
 
         ShiftPrinter::printReport($shift, $cashSales, $summary, $expected, $movements);
     }

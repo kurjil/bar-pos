@@ -11,7 +11,10 @@
             <?php if ($sale['status'] === 'COMPLETED' && auth()->role() === ROLE_ADMIN): ?>
                 <a href="<?= e(appConfig('url')) ?>/sales/<?= (int) $sale['id'] ?>/void" class="btn btn-danger">Void Sale</a>
             <?php endif; ?>
-            <a href="<?= e(appConfig('url')) ?>/pos/receipt/<?= (int) $sale['id'] ?>" class="btn btn-outline-secondary" target="_blank">Print Receipt</a>
+            <?php if ($sale['status'] === 'COMPLETED'): ?>
+            <button type="button" id="printReceiptBtn" class="btn btn-primary" data-sale-id="<?= (int) $sale['id'] ?>">Print Receipt</button>
+            <?php endif; ?>
+            <a href="<?= e(appConfig('url')) ?>/pos/receipt/<?= (int) $sale['id'] ?>" class="btn btn-outline-secondary" target="_blank">Browser Receipt</a>
         </div></div>
     </div>
     <div class="col-md-6">
@@ -25,3 +28,19 @@
         </table></div></div>
     </div>
 </div>
+<script>
+window.APP_URL = <?= json_encode(appConfig('url')) ?>;
+window.CSRF_TOKEN = <?= json_encode(session()->get('csrf_token')) ?>;
+document.getElementById('printReceiptBtn')?.addEventListener('click', function() {
+    var btn = this;
+    btn.disabled = true;
+    fetch(window.APP_URL + '/api/sales/' + btn.dataset.saleId + '/print', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify({ csrf_token: window.CSRF_TOKEN })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) { alert(data.success ? data.message : data.message); btn.disabled = false; })
+    .catch(function() { alert('Network error'); btn.disabled = false; });
+});
+</script>

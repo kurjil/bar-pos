@@ -65,10 +65,13 @@
                 <?php if ($openShift ?? null): ?>
                     <a href="<?= e(appConfig('url')) ?>/pos" class="btn btn-primary btn-lg">Open POS</a>
                     <a href="<?= e(appConfig('url')) ?>/shifts/close" class="btn btn-outline-secondary">Close Shift</a>
+                    <button type="button" id="printLastReceiptBtn" class="btn btn-outline-primary">Print Last Receipt</button>
                 <?php else: ?>
                     <a href="<?= e(appConfig('url')) ?>/shifts/open" class="btn btn-primary btn-lg">Open Shift</a>
                 <?php endif; ?>
                 <?php if (auth()->role() === ROLE_ADMIN): ?>
+                    <a href="<?= e(appConfig('url')) ?>/shifts/history" class="btn btn-outline-secondary">Shift History</a>
+                    <a href="<?= e(appConfig('url')) ?>/reports/end-of-day" class="btn btn-outline-secondary">End of Day Report</a>
                     <a href="<?= e(appConfig('url')) ?>/products/create" class="btn btn-outline-primary">Add Product</a>
                     <a href="<?= e(appConfig('url')) ?>/inventory/stock-in" class="btn btn-outline-primary">Stock In</a>
                 <?php endif; ?>

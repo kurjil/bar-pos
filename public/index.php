@@ -36,8 +36,11 @@ $router->get('/shifts/open', [ShiftController::class, 'openForm'], ['auth', 'sta
 $router->post('/shifts/open', [ShiftController::class, 'open'], ['auth', 'staff', 'csrf']);
 $router->get('/shifts/close', [ShiftController::class, 'closeForm'], ['auth', 'staff']);
 $router->post('/shifts/close', [ShiftController::class, 'close'], ['auth', 'staff', 'csrf']);
+$router->get('/shifts/history', [ShiftController::class, 'history'], ['auth', 'staff']);
+$router->get('/shifts/{id}/detail', [ShiftController::class, 'detail'], ['auth', 'staff']);
 $router->get('/shifts/report/{id}', [ShiftController::class, 'report'], ['auth', 'staff']);
 $router->get('/shifts/print/{id}', [ShiftController::class, 'printReport'], ['auth', 'staff']);
+$router->post('/api/shifts/{id}/print-report', [ShiftController::class, 'printReport'], ['auth', 'staff']);
 $router->post('/shifts/float-in', [ShiftController::class, 'addFloatIn'], ['auth', 'staff']);
 $router->post('/shifts/cash-drop', [ShiftController::class, 'addCashDrop'], ['auth', 'staff']);
 
@@ -48,6 +51,8 @@ $router->get('/pos/receipt/{id}', [PosController::class, 'receipt'], ['auth', 's
 
 // Sales
 $router->get('/sales', [SaleController::class, 'list'], ['auth', 'staff']);
+$router->post('/api/sales/print-last', [SaleController::class, 'printLast'], ['auth', 'staff']);
+$router->post('/api/sales/{id}/print', [SaleController::class, 'printReceipt'], ['auth', 'staff']);
 $router->get('/sales/{id}', [SaleController::class, 'detail'], ['auth', 'staff']);
 $router->get('/sales/{id}/void', [SaleController::class, 'voidForm'], ['auth', 'admin']);
 $router->post('/sales/{id}/void', [SaleController::class, 'void'], ['auth', 'admin', 'csrf']);
@@ -84,6 +89,8 @@ $router->post('/expenses/{id}/approve', [ExpenseController::class, 'approve'], [
 
 // Reports (admin)
 $router->get('/reports/daily-sales', [ReportController::class, 'dailySales'], ['auth', 'admin']);
+$router->get('/reports/end-of-day', [ReportController::class, 'endOfDay'], ['auth', 'admin']);
+$router->get('/reports/export/{type}', [ReportController::class, 'export'], ['auth', 'admin']);
 $router->get('/reports/by-product', [ReportController::class, 'byProduct'], ['auth', 'admin']);
 $router->get('/reports/by-category', [ReportController::class, 'byCategory'], ['auth', 'admin']);
 $router->get('/reports/inventory', [ReportController::class, 'inventory'], ['auth', 'admin']);

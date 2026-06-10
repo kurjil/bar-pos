@@ -1,3 +1,4 @@
+<?php include __DIR__ . '/_nav.php'; ?>
 <h2 class="h4 mb-3">Backup & Restore</h2>
 <form method="POST" action="<?= e(appConfig('url')) ?>/settings/backup/create" class="mb-4"><?= csrfField() ?><button class="btn btn-primary">Create Backup Now</button></form>
 <h5>Available Backups</h5>

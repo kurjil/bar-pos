@@ -1,5 +1,8 @@
 <?php use App\Helpers\Formatter; ?>
-<h2 class="h4 mb-3">Inventory Report</h2>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="h4 mb-0">Inventory Report</h2>
+    <a href="<?= e(appConfig('url')) ?>/reports/export/inventory" class="btn btn-success btn-sm">Export Excel</a>
+</div>
 <?php if (!empty($lowStock)): ?><div class="alert alert-warning"><?= count($lowStock) ?> product(s) below minimum stock.</div><?php endif; ?>
 <div class="card border-0 shadow-sm"><div class="table-responsive"><table class="table mb-0">
     <thead><tr><th>Product</th><th>Category</th><th>Stock</th><th>Min</th><th>Status</th></tr></thead>

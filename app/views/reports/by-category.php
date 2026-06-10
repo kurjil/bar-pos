@@ -1,4 +1,4 @@
-<?php use App\Helpers\Formatter; include __DIR__ . '/_filter.php'; $reportForm('by-category'); ?>
+<?php use App\Helpers\Formatter; include __DIR__ . '/_filter.php'; $reportForm('by-category', 'by-category'); ?>
 <h2 class="h4 mb-3">Sales by Category</h2>
 <div class="card border-0 shadow-sm"><div class="table-responsive"><table class="table mb-0 small">
     <thead class="table-light">
@@ -26,7 +26,7 @@
                 $totalTxns += (int)$r['transaction_count'];
             ?>
             <tr>
-                <td><?= e($r['category_name']) ?></td>
+                <td><a href="<?= e(appConfig('url')) ?>/sales?category_id=<?= (int) $r['id'] ?>"><?= e($r['category_name']) ?></a></td>
                 <td class="text-end"><?= (int) $r['transaction_count'] ?></td>
                 <td class="text-end"><?= (int) $r['total_qty'] ?></td>
                 <td class="text-end fw-bold"><?= Formatter::money($revenue) ?></td>

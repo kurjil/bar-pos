@@ -51,6 +51,18 @@ class Expense extends Model
         return $this->getTotalByDateRange($date, $date);
     }
 
+    public function getDailyTotals(string $from, string $to): array
+    {
+        $sql = 'SELECT expense_date AS date, COALESCE(SUM(amount), 0) AS total
+                FROM expenses
+                WHERE deleted_at IS NULL AND expense_date BETWEEN ? AND ?
+                GROUP BY expense_date
+                ORDER BY date DESC';
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$from, $to]);
+        return $stmt->fetchAll();
+    }
+
     public function getByCategoryReport(string $from, string $to): array
     {
         $sql = 'SELECT category, SUM(amount) AS total FROM expenses

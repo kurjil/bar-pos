@@ -71,6 +71,10 @@ class Receipt
                 $printer->text(sprintf("Discount:     %10s\n", number_format((float) $sale['discount_value'], 2)));
             }
 
+            if ((float) ($sale['tax_amount'] ?? 0) > 0) {
+                $printer->text(sprintf("Tax:          %10s\n", number_format((float) $sale['tax_amount'], 2)));
+            }
+
             $printer->setEmphasis(true);
             $printer->text(sprintf("TOTAL:        %10s\n", number_format((float) $sale['grand_total'], 2)));
             $printer->setEmphasis(false);
@@ -89,6 +93,18 @@ class Receipt
             }
             return false;
         }
+    }
+
+    public function printSaleById(int $saleId): bool
+    {
+        $saleModel = new \App\Models\Sale($this->db);
+        $saleItemModel = new SaleItem($this->db);
+        $sale = $saleModel->findWithDetails($saleId);
+        if (!$sale || $sale['status'] !== SALE_STATUS_COMPLETED) {
+            return false;
+        }
+        $items = $saleItemModel->getBySaleId($saleId);
+        return $this->printSale($sale, $items);
     }
 
     public function testPrint(): bool

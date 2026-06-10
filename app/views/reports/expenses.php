@@ -1,4 +1,4 @@
-<?php use App\Helpers\Formatter; include __DIR__ . '/_filter.php'; $reportForm('expenses'); ?>
+<?php use App\Helpers\Formatter; include __DIR__ . '/_filter.php'; $reportForm('expenses', 'expenses'); ?>
 <h2 class="h4 mb-3">Expense Report</h2>
 
 <div class="row mb-4">

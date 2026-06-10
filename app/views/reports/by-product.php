@@ -1,4 +1,4 @@
-<?php use App\Helpers\Formatter; include __DIR__ . '/_filter.php'; $reportForm('by-product'); ?>
+<?php use App\Helpers\Formatter; include __DIR__ . '/_filter.php'; $reportForm('by-product', 'by-product'); ?>
 <h2 class="h4 mb-3">Sales by Product</h2>
 <div class="card border-0 shadow-sm"><div class="table-responsive"><table class="table mb-0 small">
     <thead class="table-light">
@@ -24,7 +24,7 @@
                 $totalProfit += $profit;
             ?>
             <tr>
-                <td><?= e($r['product_name']) ?></td>
+                <td><a href="<?= e(appConfig('url')) ?>/sales?product_id=<?= (int) $r['id'] ?>"><?= e($r['product_name']) ?></a></td>
                 <td class="text-end"><?= (int) $r['qty'] ?></td>
                 <td class="text-end"><?= Formatter::money((float) $r['selling_price']) ?></td>
                 <td class="text-end fw-bold"><?= Formatter::money($revenue) ?></td>

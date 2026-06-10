@@ -4,9 +4,8 @@ $discClass = $disc < 0 ? 'text-danger' : ($disc > 0 ? 'text-success' : '');
 ?>
 <div class="mb-3">
     <h2 class="h4 d-inline">Shift Report #<?= (int) $shift['id'] ?></h2>
-    <a href="<?= e(appConfig('url')) ?>/shifts/print/<?= (int) $shift['id'] ?>" class="btn btn-outline-primary btn-sm float-end" target="_blank">
-        <i class="bi bi-printer"></i> Print Report
-    </a>
+    <button type="button" id="printShiftReportBtn" class="btn btn-primary btn-sm float-end me-2" data-shift-id="<?= (int) $shift['id'] ?>">Print to Thermal</button>
+    <a href="<?= e(appConfig('url')) ?>/shifts/print/<?= (int) $shift['id'] ?>" class="btn btn-outline-primary btn-sm float-end" target="_blank">Download Report</a>
 </div>
 <div class="card border-0 shadow-sm"><div class="card-body">
     <p><strong>Cashier:</strong> <?= e($shift['user_name']) ?></p>
@@ -27,3 +26,19 @@ $discClass = $disc < 0 ? 'text-danger' : ($disc > 0 ? 'text-success' : '');
     <p><strong>Discrepancy:</strong> <span class="<?= $discClass ?> fw-bold"><?= Formatter::money($disc) ?></span></p>
     <p><strong>Total Sales:</strong> <?= Formatter::money((float) $summary['total_sales']) ?></p>
 </div></div>
+<script>
+window.APP_URL = <?= json_encode(appConfig('url')) ?>;
+window.CSRF_TOKEN = <?= json_encode(session()->get('csrf_token')) ?>;
+document.getElementById('printShiftReportBtn')?.addEventListener('click', function() {
+    var btn = this;
+    btn.disabled = true;
+    fetch(window.APP_URL + '/api/shifts/' + btn.dataset.shiftId + '/print-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify({ csrf_token: window.CSRF_TOKEN })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) { alert(data.success ? data.message : data.message); btn.disabled = false; })
+    .catch(function() { alert('Network error'); btn.disabled = false; });
+});
+</script>

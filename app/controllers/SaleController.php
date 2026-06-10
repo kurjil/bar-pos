@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Exceptions\DatabaseException;
 use App\Exceptions\ValidationException;
+use App\Helpers\Receipt;
 use App\Helpers\Request;
 use App\Middleware\Csrf;
 use App\Models\AuditLog;
@@ -13,6 +14,8 @@ use App\Models\InventoryMovement;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleItem;
+use App\Models\Settings;
+use App\Models\User;
 use PDO;
 
 class SaleController
@@ -35,9 +38,44 @@ class SaleController
     public function list(Request $request, array $params = []): void
     {
         Csrf::generateToken();
+
+        $filters = [
+            'from' => $request->get('from', ''),
+            'to' => $request->get('to', ''),
+            'user_id' => $request->get('user_id', ''),
+            'status' => $request->get('status', ''),
+            'payment_method' => $request->get('payment_method', ''),
+            'product_id' => $request->get('product_id', ''),
+            'category_id' => $request->get('category_id', ''),
+        ];
+
+        $page = max(1, (int) $request->get('page', 1));
+        $perPage = 50;
+        $isAdmin = auth()->role() === ROLE_ADMIN;
+
+        if (!$isAdmin) {
+            $filters['user_id'] = (string) auth()->id();
+        }
+
+        $sales = $this->saleModel->search($filters, $page, $perPage);
+        $total = $this->saleModel->countSearch($filters);
+        $totalPages = max(1, (int) ceil($total / $perPage));
+
+        $users = [];
+        if ($isAdmin) {
+            $userModel = new User($this->db);
+            $users = $userModel->all();
+        }
+
         view('sales/list', [
             'title' => 'Sales',
-            'sales' => $this->saleModel->getAllWithCashier(100),
+            'sales' => $sales,
+            'filters' => $filters,
+            'page' => $page,
+            'totalPages' => $totalPages,
+            'total' => $total,
+            'users' => $users,
+            'isAdmin' => $isAdmin,
         ]);
     }
 
@@ -53,6 +91,75 @@ class SaleController
             'sale' => $sale,
             'items' => $this->saleItemModel->getBySaleId((int) $sale['id']),
         ]);
+    }
+
+    public function printReceipt(Request $request, array $params = []): void
+    {
+        $input = $request->json() ?: $request->post();
+        $token = $input['csrf_token'] ?? '';
+        if (!$token || !hash_equals(session()->get('csrf_token', ''), (string) $token)) {
+            response()->json(['success' => false, 'message' => 'CSRF token invalid'], 403);
+        }
+
+        $id = (int) $params['id'];
+        $sale = $this->saleModel->findWithDetails($id);
+        if (!$sale) {
+            response()->json(['success' => false, 'message' => 'Sale not found'], 404);
+        }
+
+        $settings = new Settings($this->db);
+        $printer = new Receipt($this->db, $settings);
+        $printed = $printer->printSaleById($id);
+
+        $this->auditLog->log('RECEIPT_REPRINT', auth()->id(), 'sales', $id, [
+            'receipt_number' => $sale['receipt_number'],
+            'printed' => $printed,
+        ], $request->ip());
+
+        if ($printed) {
+            response()->json(['success' => true, 'message' => 'Receipt sent to printer']);
+        }
+
+        response()->json([
+            'success' => false,
+            'message' => 'Printer offline or disabled. Enable printer in Settings.',
+        ], 500);
+    }
+
+    public function printLast(Request $request, array $params = []): void
+    {
+        $input = $request->json() ?: $request->post();
+        $token = $input['csrf_token'] ?? '';
+        if (!$token || !hash_equals(session()->get('csrf_token', ''), (string) $token)) {
+            response()->json(['success' => false, 'message' => 'CSRF token invalid'], 403);
+        }
+
+        $lastSale = $this->saleModel->getLastForUser(auth()->id());
+        if (!$lastSale) {
+            response()->json(['success' => false, 'message' => 'No recent sale found'], 404);
+        }
+
+        $settings = new Settings($this->db);
+        $printer = new Receipt($this->db, $settings);
+        $printed = $printer->printSaleById((int) $lastSale['id']);
+
+        $this->auditLog->log('RECEIPT_REPRINT_LAST', auth()->id(), 'sales', (int) $lastSale['id'], [
+            'receipt_number' => $lastSale['receipt_number'],
+            'printed' => $printed,
+        ], $request->ip());
+
+        if ($printed) {
+            response()->json([
+                'success' => true,
+                'message' => 'Last receipt sent to printer',
+                'receipt_number' => $lastSale['receipt_number'],
+            ]);
+        }
+
+        response()->json([
+            'success' => false,
+            'message' => 'Printer offline or disabled. Enable printer in Settings.',
+        ], 500);
     }
 
     public function voidForm(Request $request, array $params = []): void

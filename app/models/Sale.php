@@ -135,6 +135,120 @@ class Sale extends Model
         return $stmt->fetchAll();
     }
 
+    public function getLastForUser(int $userId): ?array
+    {
+        $sql = 'SELECT s.*, u.name AS cashier_name FROM sales s
+                INNER JOIN users u ON u.id = s.user_id
+                WHERE s.user_id = ? AND s.status = ?
+                ORDER BY s.created_at DESC LIMIT 1';
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$userId, SALE_STATUS_COMPLETED]);
+        $row = $stmt->fetch();
+        return $row ?: null;
+    }
+
+    public function search(array $filters, int $page = 1, int $perPage = 50): array
+    {
+        [$where, $params] = $this->buildSearchWhere($filters);
+        $offset = max(0, ($page - 1) * $perPage);
+
+        $sql = "SELECT s.*, u.name AS cashier_name,
+                (SELECT COUNT(*) FROM sale_items si WHERE si.sale_id = s.id) AS items_count
+                FROM sales s
+                INNER JOIN users u ON u.id = s.user_id
+                WHERE {$where}
+                ORDER BY s.created_at DESC
+                LIMIT ? OFFSET ?";
+        $stmt = $this->db->prepare($sql);
+        $i = 1;
+        foreach ($params as $param) {
+            $stmt->bindValue($i++, $param);
+        }
+        $stmt->bindValue($i++, $perPage, \PDO::PARAM_INT);
+        $stmt->bindValue($i, $offset, \PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
+
+    public function countSearch(array $filters): int
+    {
+        [$where, $params] = $this->buildSearchWhere($filters);
+        $sql = "SELECT COUNT(*) FROM sales s INNER JOIN users u ON u.id = s.user_id WHERE {$where}";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return (int) $stmt->fetchColumn();
+    }
+
+    /** @return array{0: string, 1: array<int, mixed>} */
+    private function buildSearchWhere(array $filters): array
+    {
+        $conditions = ['1=1'];
+        $params = [];
+
+        if (!empty($filters['from'])) {
+            $conditions[] = 'DATE(s.created_at) >= ?';
+            $params[] = $filters['from'];
+        }
+        if (!empty($filters['to'])) {
+            $conditions[] = 'DATE(s.created_at) <= ?';
+            $params[] = $filters['to'];
+        }
+        if (!empty($filters['user_id'])) {
+            $conditions[] = 's.user_id = ?';
+            $params[] = (int) $filters['user_id'];
+        }
+        if (!empty($filters['status'])) {
+            $conditions[] = 's.status = ?';
+            $params[] = $filters['status'];
+        }
+        if (!empty($filters['payment_method'])) {
+            $conditions[] = 's.payment_method = ?';
+            $params[] = $filters['payment_method'];
+        }
+        if (!empty($filters['product_id'])) {
+            $conditions[] = 'EXISTS (SELECT 1 FROM sale_items si WHERE si.sale_id = s.id AND si.product_id = ?)';
+            $params[] = (int) $filters['product_id'];
+        }
+        if (!empty($filters['category_id'])) {
+            $conditions[] = 'EXISTS (
+                SELECT 1 FROM sale_items si
+                INNER JOIN products p ON p.id = si.product_id
+                WHERE si.sale_id = s.id AND p.category_id = ?
+            )';
+            $params[] = (int) $filters['category_id'];
+        }
+
+        return [implode(' AND ', $conditions), $params];
+    }
+
+    public function getTransactions(string $from, string $to): array
+    {
+        $sql = "SELECT s.id, s.receipt_number, s.created_at, s.grand_total, s.payment_method, s.status,
+                u.name AS cashier_name,
+                (SELECT COUNT(*) FROM sale_items si WHERE si.sale_id = s.id) AS items_count
+                FROM sales s
+                INNER JOIN users u ON u.id = s.user_id
+                WHERE s.status = ? AND DATE(s.created_at) BETWEEN ? AND ?
+                ORDER BY s.created_at DESC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([SALE_STATUS_COMPLETED, $from, $to]);
+        return $stmt->fetchAll();
+    }
+
+    public function getEndOfDayRows(string $from, string $to): array
+    {
+        $sql = "SELECT DATE(s.created_at) AS date,
+                COUNT(*) AS transaction_count,
+                COALESCE(SUM(s.grand_total), 0) AS total_sales
+                FROM sales s
+                WHERE s.status = ? AND DATE(s.created_at) BETWEEN ? AND ?
+                GROUP BY DATE(s.created_at)
+                ORDER BY date DESC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([SALE_STATUS_COMPLETED, $from, $to]);
+        return $stmt->fetchAll();
+    }
+
     public function getDailySalesDetail(string $from, string $to): array
     {
         $sql = "SELECT DATE(created_at) AS date,

@@ -4,8 +4,82 @@ declare(strict_types=1);
 
 namespace App\Helpers;
 
+use Mike42\Escpos\PrintConnectors\NetworkPrintConnector;
+use Mike42\Escpos\PrintConnectors\WindowsPrintConnector;
+use Mike42\Escpos\Printer;
+
 class ShiftPrinter
 {
+    public static function printThermal(
+        array $shift,
+        float $cashSales,
+        array $summary,
+        float $expected,
+        array $movements = [],
+        array $sales = []
+    ): bool {
+        $config = require dirname(__DIR__) . '/config/printer.php';
+        if (!$config['enabled']) {
+            return false;
+        }
+
+        try {
+            $connector = match ($config['connector']) {
+                'network' => new NetworkPrintConnector($config['host'], $config['port']),
+                default => new WindowsPrintConnector($config['path']),
+            };
+
+            $printer = new Printer($connector);
+            $printer->setJustification(Printer::JUSTIFY_CENTER);
+            $printer->setEmphasis(true);
+            $printer->text("SHIFT REPORT\n");
+            $printer->setEmphasis(false);
+            $printer->text(str_repeat('-', 32) . "\n");
+            $printer->setJustification(Printer::JUSTIFY_LEFT);
+            $printer->text('Shift #' . $shift['id'] . "\n");
+            $printer->text('Cashier: ' . ($shift['user_name'] ?? '') . "\n");
+            $printer->text('Opened: ' . Formatter::datetime($shift['opening_time']) . "\n");
+            $printer->text('Closed: ' . Formatter::datetime($shift['closing_time'] ?? '') . "\n");
+            $printer->text(str_repeat('-', 32) . "\n");
+            $printer->text('Opening Float: ' . Formatter::money((float) $shift['opening_float']) . "\n");
+
+            foreach ($movements as $mvmt) {
+                $label = $mvmt['movement_type'] === 'FLOAT_IN' ? 'Float In' : 'Cash Drop';
+                $printer->text($label . ': ' . Formatter::money((float) $mvmt['amount']) . "\n");
+            }
+
+            $printer->text('Cash Sales: ' . Formatter::money($cashSales) . "\n");
+            $printer->text('Expected: ' . Formatter::money($expected) . "\n");
+            $printer->text('Actual: ' . Formatter::money((float) ($shift['closing_float'] ?? 0)) . "\n");
+            $discrepancy = (float) ($shift['discrepancy'] ?? 0);
+            $printer->text('Discrepancy: ' . Formatter::money($discrepancy) . "\n");
+            $printer->text(str_repeat('-', 32) . "\n");
+            $printer->text("SALES\n");
+            foreach ($sales as $sale) {
+                $printer->text(sprintf(
+                    "%s %s %s\n",
+                    substr($sale['receipt_number'], 0, 14),
+                    date('H:i', strtotime($sale['created_at'])),
+                    Formatter::money((float) $sale['grand_total'])
+                ));
+            }
+            $printer->text(str_repeat('-', 32) . "\n");
+            $printer->text('Transactions: ' . (int) $summary['transaction_count'] . "\n");
+            $printer->text('Total Sales: ' . Formatter::money((float) $summary['total_sales']) . "\n");
+            $printer->setJustification(Printer::JUSTIFY_CENTER);
+            $printer->text("Thank you!\n");
+            $printer->feed(3);
+            $printer->cut();
+            $printer->close();
+            return true;
+        } catch (\Throwable $e) {
+            if (DEBUG) {
+                error_log('Shift print error: ' . $e->getMessage(), 3, LOG_FILE);
+            }
+            return false;
+        }
+    }
+
     public static function generateEndOfDayReport(array $shift, float $cashSales, array $summary, float $expected, array $movements = []): string
     {
         $output = '';
